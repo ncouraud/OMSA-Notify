@@ -1,11 +1,11 @@
 ﻿<#
 .SYNOPSIS
 This is a PowerShell Script to generate email alerts from Dell OpenManage Server Administrator Alerts
- 
+
 .DESCRIPTION
 This Script Is used to send SMTP alerts from Servers running Dell Open Manage Server Administrator. It can automatically configure itself for most common OpenManage Alerts using the -Setup Parameter. It can also send test alerts using -Test.
- 
-.PARAMETER Setup 
+
+.PARAMETER Setup
 Runs omconfig commands to set the script as action on alert generation.
 
 .PARAMETER Test
@@ -16,8 +16,8 @@ The Event Class to generate an Alert for.
 
 .EXAMPLE
 ./OMSANotify.ps1 -Test
- 
- 
+
+
 .LINK
 https://bitbucket.org/ncouraud/omsa-notify
 #>
@@ -25,18 +25,18 @@ https://bitbucket.org/ncouraud/omsa-notify
 # Setup Our Parameters
 [CmdletBinding()]
 Param(
-   # The Event Type that we need to respond to. 
+   # The Event Type that we need to respond to.
    [Parameter(Mandatory=$False,Position=1)]
    [string]$eventType,
 
    # Run the Setup Commands
    [switch]$Setup,
-   
+
    # Send a Test Alert
    [switch]$Test
 )
 
-# Define the List of Alerts that we Respond to. Desired Alerts May be Added/Removed.  
+# Define the List of Alerts that we Respond to. Desired Alerts May be Added/Removed.
 $Alerts = @{}
 $Alerts.Add("powersupply",'Power Supply Failure')
 $Alerts.Add("powersupplywarn",'Power Supply Warning')
@@ -94,7 +94,7 @@ function sendMail($AlertType, $body) {
 
      #Sending email
      $smtp.Send($msg)
- 
+
 }
 
 # Kicks Off OM Alert Config Commands for all Warnings/Failures
@@ -150,7 +150,7 @@ Function SetOMAlert($event, $cmdString){
     invoke-command -scriptblock {omconfig system alertaction event=$Event execappath="$cmdString $event"}
 }
 
-# Lets Generate A Test case Email, so we can be sure it works 
+# Lets Generate A Test case Email, so we can be sure it works
 Function Test(){
     ProcessAlert "test";
     }
@@ -162,21 +162,21 @@ Function logEvent($event)
     Write-EventLog -Logname System -Source OMSANotify -eventId 1 -entryType Warning -message $EventMsg
 }
 
-# Handles All Alert Processing. 
-Function ProcessAlert($alert) {    
+# Handles All Alert Processing.
+Function ProcessAlert($alert) {
     $AlertMessageString = ""
 
     # Check if it's a known OMSA Alert
     If($Alerts.containsKey($alert)){
-        $AlertMessageString = $Alerts.Get_Item($alert) + " was reported on $Env:COMPUTERNAME. Please log in ASAP and check OMSA for further details."
+        $AlertMessageString = $Alerts.Get_Item($alert) + " was reported on $Env:COMPUTERNAME. Check OMSA for further details - https://$($Env:COMPUTERNAME):1311."
         }
     Else {
-        "Unknown Alert - $alert was reported at $Date on $Env:COMPUTERNAME. Please log in ASAP and check OMSA for further details."
+        "Unknown Alert - $alert was reported at $Date on $Env:COMPUTERNAME. Check OMSA for further details - https://$($Env:COMPUTERNAME):1311."
         }
 
     sendMail $alert $AlertMessageString;
 
-    #Register our event in Windows Event Log. 
+    #Register our event in Windows Event Log.
     logEvent $alert;
 }
 
