@@ -1,23 +1,23 @@
-﻿<#
+<#
 .SYNOPSIS
 This is a PowerShell Script to generate email alerts from Dell OpenManage Server Administrator Alerts
- 
+
 .DESCRIPTION
 This Script Is used to send SMTP alerts from Servers running Dell Open Manage Server Administrator. It can automatically configure itself for most common OpenManage Alerts using the -Setup Parameter. It can also send test alerts using -Test.
- 
-.PARAMETER Setup 
+
+.PARAMETER Setup
 Runs omconfig commands to set the script as action on alert generation.
 
 .PARAMETER Test
 Sends a test alert.
 
-.PARAMETER eventType
+.PARAMETER EventType
 The Event Class to generate an Alert for.
 
 .EXAMPLE
 ./OMSANotify.ps1 -Test
- 
- 
+
+
 .LINK
 https://bitbucket.org/ncouraud/omsa-notify
 #>
@@ -25,19 +25,27 @@ https://bitbucket.org/ncouraud/omsa-notify
 # Setup Our Parameters
 [CmdletBinding()]
 Param(
-   # The Event Type that we need to respond to. 
+   # The Event Type that we need to respond to.
    [Parameter(Mandatory=$False,Position=1)]
-   [string]$eventType,
+   [string]$EventType,
 
    # Run the Setup Commands
    [switch]$Setup,
-   
+
    # Send a Test Alert
    [switch]$Test
 )
 
-# Define the List of Alerts that we Respond to. Desired Alerts May be Added/Removed.  
+# Setup our Variables
+
+$EmailSmtpServer = "smtp.domain.local"
+$EmailDomainSender = "domain.local"
+$EmailTo = "recipient@domain.local"
+$EmailReplyTo = "no-reply@domain.local"
+
+# Define the List of Alerts that we Respond to. Desired Alerts May be Added/Removed.
 $Alerts = @{}
+$Alerts.Add("test",'Test Alert')
 $Alerts.Add("powersupply",'Power Supply Failure')
 $Alerts.Add("powersupplywarn",'Power Supply Warning')
 $Alerts.Add("tempwarn",'Temperature Warning')
@@ -72,123 +80,87 @@ $Alerts.Add("enclosurewarn",'Enclosure Warning')
 $Alerts.Add("enclosurefail",'Enclosure Failure')
 $Alerts.Add("storagectrlbatterywarn",'Storage Controller Battery Warning')
 $Alerts.Add("storagectrlbatteryfail",'Storage Controller Battery Failure')
-$Alerts.Add("test",'Test Alert')
 
 # Sends our Alert Mail
-function sendMail($AlertType, $body) {
-     #SMTP server name
-     $smtpServer = "YOUR SMTP SERVER"
+Function sendMail($AlertType, $Body) {
 
      #Creating a Mail object
-     $msg = new-object Net.Mail.MailMessage
+     $Msg = new-object Net.Mail.MailMessage
 
      #Creating SMTP server object
-     $smtp = new-object Net.Mail.SmtpClient($smtpServer)
+     $Smtp = new-object Net.Mail.SmtpClient($EmailSmtpServer)
 
      #Email structure
-     $msg.From = "$env:COMPUTERNAME@domain.com"
-     $msg.ReplyTo = "No-Reply@domain.com"
-     $msg.To.Add("ADMIN@domain.com")
-     $msg.Subject = "Dell OMSA $AlertType Alert on $env:COMPUTERNAME"
-     $msg.body = $body
+     $Msg.From = "$env:COMPUTERNAME@$EmailDomainSender"
+     $Msg.ReplyTo = $EmailReplyTo
+     $Msg.To.Add($EmailTo)
+     $Msg.Subject = "Dell OMSA - $AlertType Alert on $($Env:COMPUTERNAME)"
+     $Msg.body = $Body
 
      #Sending email
-     $smtp.Send($msg)
- 
+     $Smtp.Send($Msg)
+
 }
 
 # Kicks Off OM Alert Config Commands for all Warnings/Failures
-Function Setup(){
+Function Setup() {
     # Define our command String
     $ScriptPath = (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Definition
-    $command = "powershell "+$ScriptPath+" -eventType"
+    $command = "powershell "+$ScriptPath+" -EventType"
 
     # Set Up OpenManage Alert handlers
-    SetOMAlert "powersupply" $command;
-    SetOMAlert "powersupplywarn" $command;
-    SetOMAlert "tempwarn" $command;
-    SetOMAlert "tempfail" $command;
-    SetOMAlert "fanwarn" $command;
-    SetOMAlert "fanfail" $command;
-    SetOMAlert "voltwarn" $command;
-    SetOMAlert "voltfail" $command;
-    SetOMAlert "Intrusion" $command;
-    SetOMAlert "redundegrad" $command;
-    SetOMAlert "redunlost" $command;
-    SetOMAlert "memprefail" $command;
-    SetOMAlert "memfail" $command;
-    SetOMAlert "hardwarelogwarn" $command;
-    SetOMAlert "hardwarelogfull" $command;
-    SetOMAlert "processorwarn" $command;
-    SetOMAlert "processorfail" $command;
-    SetOMAlert "watchdogasr" $command;
-    SetOMAlert "batterywarn" $command;
-    SetOMAlert "batteryfail" $command;
-    SetOMAlert "systempowerwarn" $command;
-    SetOMAlert "systempowerfail" $command;
-    SetOMAlert "storagesyswarn" $command;
-    SetOMAlert "storagesysfail" $command;
-    SetOMAlert "storagectrlwarn" $command;
-    SetOMAlert "storagectrlfail" $command;
-    SetOMAlert "pdiskwarn" $command;
-    SetOMAlert "pdiskfail" $command;
-    SetOMAlert "vdiskwarn" $command;
-    SetOMAlert "vdiskfail" $command;
-    SetOMAlert "enclosurewarn" $command;
-    SetOMAlert "enclosurefail" $command;
-    SetOMAlert "storagectrlbatterywarn" $command;
-    SetOMAlert "storagectrlbatteryfail" $command;
+    Foreach ($Alert in $Alerts.Keys) {
+        If ( $Alert -NotLike "test" ) {
+            SetOMAlert $Alert $command
+        }
+    }
 
     # Register Our Event Log Source
-    if ([System.Diagnostics.EventLog]::SourceExists("OMSANotify") -eq $false) {
+    If ([System.Diagnostics.EventLog]::SourceExists("OMSANotify") -eq $false) {
         [System.Diagnostics.EventLog]::CreateEventSource("OMSANotify", "System")
     }
 }
 
 # OMCONFIG Runner for individual Alert config
-Function SetOMAlert($event, $cmdString){
-    invoke-command -scriptblock {omconfig system alertaction event=$Event execappath="$cmdString $event"}
+Function SetOMAlert($Event, $cmdString) {
+    Invoke-Command -Scriptblock {omconfig system alertaction event=$Event execappath="$cmdString $Event"}
 }
 
-# Lets Generate A Test case Email, so we can be sure it works 
-Function Test(){
-    ProcessAlert "test";
+# Lets Generate A Test case Email, so we can be sure it works
+Function Test() {
+    ProcessAlert "test"
     }
 
 # Logs OMSA Event and Email in Windows Event Log
-Function logEvent($event)
-{
-    $EventMsg = "OMSA Notify Processed Dell Open Manage Event $event"
-    Write-EventLog -Logname System -Source OMSANotify -eventId 1 -entryType Warning -message $EventMsg
+Function logEvent($Event) {
+    Write-EventLog -Logname System -Source OMSANotify -EventId 1 -EntryType Warning -Message $Event
 }
 
-# Handles All Alert Processing. 
-Function ProcessAlert($alert) {    
+# Handles All Alert Processing.
+Function ProcessAlert($Alert) {
     $AlertMessageString = ""
 
     # Check if it's a known OMSA Alert
-    If($Alerts.containsKey($alert)){
-        $AlertMessageString = $Alerts.Get_Item($alert) + " was reported on $Env:COMPUTERNAME. Please log in ASAP and check OMSA for further details."
-        }
-    Else {
-        "Unknown Alert - $alert was reported at $Date on $Env:COMPUTERNAME. Please log in ASAP and check OMSA for further details."
-        }
-
-    sendMail $alert $AlertMessageString;
-
-    #Register our event in Windows Event Log. 
-    logEvent $alert;
-}
-
-
-if($eventType) {
-    ProcessAlert $event;
-}
-else {
-    if($Setup) {
-        Setup;
+    If ( $Alerts.containsKey($Alert) ) {
+        $AlertProcessed = "$($Alerts.Get_Item($Alert))"
     }
-    if($Test) {
-        Test;
+    Else {
+        $AlertProcessed = "Unknown Alert - $Alert"
+    }
+
+    $AlertMessageString = "$AlertProcessed was reported at $Date on $($Env:COMPUTERNAME). Check OMSA for further details - https://$($Env:COMPUTERNAME):1311"
+    sendMail $AlertProcessed $AlertMessageString
+    logEvent $AlertMessageString
+}
+
+If ($EventType) {
+    ProcessAlert $EventType
+}
+Else {
+    If ($Setup) {
+        Setup
+    }
+    If ($Test) {
+        Test
     }
 }
