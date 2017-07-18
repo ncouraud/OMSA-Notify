@@ -19,7 +19,7 @@ The Event Class to generate an Alert for.
 
 
 .LINK
-https://bitbucket.org/ncouraud/omsa-notify
+https://github.com/ncouraud/omsa-notify
 #>
 
 # Setup Our Parameters
