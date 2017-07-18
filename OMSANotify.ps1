@@ -38,10 +38,13 @@ Param(
 
 # Setup our Variables
 
-$EmailSmtpServer = "smtp.domain.local"
-$EmailDomainSender = "domain.local"
-$EmailTo = "recipient@domain.local"
-$EmailReplyTo = "no-reply@domain.local"
+$EmailSmtpServer    = "smtp.domain.local"       #Your SMTP server
+$EmailDomainSender  = "domain.local"            #The domain portion of your email address
+$EmailTo            = "recipient@domain.local"  #Email to send to
+$EmailReplyTo       = "no-reply@domain.local"   #Email to send as
+
+# Todays date for logging
+$Date = Get-Date
 
 # Define the List of Alerts that we Respond to. Desired Alerts May be Added/Removed.
 $Alerts = @{}
@@ -133,7 +136,12 @@ Function Test() {
 
 # Logs OMSA Event and Email in Windows Event Log
 Function logEvent($Event) {
+    # Write event to Windows System log
     Write-EventLog -Logname System -Source OMSANotify -EventId 1 -EntryType Warning -Message $Event
+    
+    # Write event to local file log
+    $ScriptFolder = Split-Path $script:MyInvocation.MyCommand.Path
+    $Event | Out-File $ScriptFolder"\OMSANotify-event.log" -Append
 }
 
 # Handles All Alert Processing.
@@ -149,8 +157,17 @@ Function ProcessAlert($Alert) {
     }
 
     $AlertMessageString = "$AlertProcessed was reported at $Date on $($Env:COMPUTERNAME). Check OMSA for further details - https://$($Env:COMPUTERNAME):1311"
+    
+    Try {
     sendMail $AlertProcessed $AlertMessageString
     logEvent $AlertMessageString
+    }
+    Catch {
+        # Write errors to log file
+        $ScriptFolder = Split-Path $script:MyInvocation.MyCommand.Path
+        write-output "$Date - OMSANotify Error" | Out-File $ScriptFolder"\OMSANotify-error.log" -Append
+        $_ | Format-List * -Force | Out-File $ScriptFolder"\OMSANotify-error.log" -Append
+    }
 }
 
 If ($EventType) {
