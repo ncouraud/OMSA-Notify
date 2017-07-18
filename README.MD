@@ -6,8 +6,10 @@ Dell OpenManager Server Administrator (OMSA) Notification Script.
 
 This script updates your Dell OMSA Alert Management settings to call this script when alerts happen performing three actions; sending SMTP email of the alert, logging the alert to the Windows System event logs, and writes a local log file of alerts and errors.
 
-"Forked" from https://github.com/ncouraud/OMSA-Notify
-"Re-Forked" https://github.com/GMartinez-Sisti/OMSA-Notify
+## Contributors
+* [Gabriel Martinez](https://github.com/GMartinez-Sisti)
+* [Leith Tussing](https://github.com/brentil)
+* [Nick Couraud](https://github.com/ncouraud)
 
 
 ## Installation
