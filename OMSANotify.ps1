@@ -83,6 +83,10 @@ $Alerts.Add("enclosurewarn",'Enclosure Warning')
 $Alerts.Add("enclosurefail",'Enclosure Failure')
 $Alerts.Add("storagectrlbatterywarn",'Storage Controller Battery Warning')
 $Alerts.Add("storagectrlbatteryfail",'Storage Controller Battery Failure')
+$Alerts.Add("systempeakpower",'System Peak Power')
+$Alerts.Add("removableflashmediapresent",'Removable Flash Media Present')
+$Alerts.Add("removableflashmediaremoved",'Removable Flash Media Removed')
+$Alerts.Add("removableflashmediafail",'Removable Flash Media Failure')
 
 # Sends our Alert Mail
 Function sendMail($AlertType, $Body) {
